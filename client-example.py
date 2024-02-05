@@ -43,8 +43,12 @@ server = openl2m.Server(url=url, token=token)
 # you can use the pprint library to read the format.
 #
 
-# get more debugging output, 2 show full return info from requests (very verbose!)
+# get more debugging output, 1 will show some progress steps,
+# 2 shows full response data from requests (very verbose!)
 server.set_verbose(verbose=1)
+
+# if you have SSL certs that are not "recognized" (self-signed, CA-certs unavailable, etc)
+# then turn off SSL verification:
 server.set_verify(verify=False)
 
 #########################

@@ -90,10 +90,10 @@ class Server:
             url = f"{self.url}{endpoint}"
             if data:
                 self.debug(f"  POST: {url}")
-                response = requests.post(url=url, json=data, headers=self.headers)
+                response = requests.post(url=url, json=data, headers=self.headers, verify=self.verify)
             else:
                 self.debug(f"  GET: {url}")
-                response = requests.get(url=f"{self.url}{endpoint}", headers=self.headers)
+                response = requests.get(url=f"{self.url}{endpoint}", headers=self.headers, verify=self.verify)
             self.debug(f"  Response code {response.status_code}")
             self.debug(f"  Body:\n{response.content}\n", level=2)
         except Exception as e:
