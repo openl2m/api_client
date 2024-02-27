@@ -1,0 +1,11 @@
+*.pyc
+.recycle/
+__pycache__/
+venv/
+.idea
+*.sh
+*.swp
+*.pcap
+.DS_Store
+._*
+.vscode

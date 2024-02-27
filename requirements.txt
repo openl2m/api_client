@@ -1,0 +1,8 @@
+# requirements for just this code
+# if you run from OpenL2M virtual environment, you should be good to go!
+json
+os
+pprint
+requests
+sys
+types_requests

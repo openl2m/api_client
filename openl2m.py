@@ -14,27 +14,30 @@
 #
 # This implements a Python 3 client class for OpenL2M's REST API.
 #
-import json
 import requests
 
 
 class Server:
     """Object that implements the OpenL2M client side of the REST API on the server"""
 
-    def __init__(self, url, token):
-        self.url = url      # the base URL where the REST queries will be made.
+    def __init__(self, url: str, token: str):
+        self.url = url  # the base URL where the REST queries will be made.
         self.token = token  # the API token
-        self.headers =  {
+        self.headers = {
             "Authorization": f"Token {token}",
-            "Content-Type": "application/json",     # we use JSON posting format.
+            "Content-Type": "application/json",  # we use JSON posting format.
         }
-        self.status = 0         # will contain the HTTP response status, or -1 if Exception caught.
-        self.error = ""         # will contain string value of last caught error.
-        self.response = False   # will contain the response from the last .get() or .post()
-        self.verbose = 0        # debug output level. If > 0, will print debug info to stdout
-        self.verify = True      # verify SSL cert chain ?
+        self.status = (
+            0  # will contain the HTTP response status, or -1 if Exception caught.
+        )
+        self.error = ""  # will contain string value of last caught error.
+        self.response = (
+            False  # will contain the response from the last .get() or .post()
+        )
+        self.verbose = 0  # debug output level. If > 0, will print debug info to stdout
+        self.verify = True  # verify SSL cert chain ?
 
-    def set_verify(self, verify):
+    def set_verify(self, verify: bool) -> None:
         """
         Enable or disable SSL verification.
 
@@ -46,7 +49,7 @@ class Server:
         """
         self.verify = verify
 
-    def set_verbose(self, verbose):
+    def set_verbose(self, verbose: int):
         """
         Set the verbosity level.
 
@@ -58,7 +61,7 @@ class Server:
         """
         self.verbose = verbose
 
-    def debug(self, text, level=1):
+    def debug(self, text: str, level: int = 1):
         """Show debug text if verbosity is at or above level given.
 
         Args:
@@ -71,7 +74,7 @@ class Server:
         if self.verbose >= level:
             print(f"DEBUG{level}: {text}")
 
-    def execute(self, endpoint, data=False):
+    def execute(self, endpoint: str, data: dict = {}) -> bool:
         """Execute a GET or a POST, depending on data given (POST) or not (GET).
         Will set self.response, self.status and self.error as applicable.
 
@@ -85,15 +88,21 @@ class Server:
         self.debug(f"execute(endpoint={endpoint})")
         self.status = 0
         self.error = ""
-        self.response=False
+        self.response = False
         try:
             url = f"{self.url}{endpoint}"
             if data:
                 self.debug(f"  POST: {url}")
-                response = requests.post(url=url, json=data, headers=self.headers, verify=self.verify)
+                response = requests.post(
+                    url=url, json=data, headers=self.headers, verify=self.verify
+                )
             else:
                 self.debug(f"  GET: {url}")
-                response = requests.get(url=f"{self.url}{endpoint}", headers=self.headers, verify=self.verify)
+                response = requests.get(
+                    url=f"{self.url}{endpoint}",
+                    headers=self.headers,
+                    verify=self.verify,
+                )
             self.debug(f"  Response code {response.status_code}")
             self.debug(f"  Body:\n{response.content}\n", level=2)
         except Exception as e:
@@ -103,11 +112,11 @@ class Server:
             return False
         self.response = response
         self.status = response.status_code
-        if response.status_code != requests.codes.ok:   # HTTP returned error code!
+        if response.status_code != requests.codes.ok:  # HTTP returned error code!
             return False
         return True
 
-    def devices(self):
+    def devices(self) -> bool:
         """Get the list of devices available to this token.
 
         Args:
@@ -119,13 +128,13 @@ class Server:
         self.debug("devices()")
         return self.execute(endpoint="api/switches/")
 
-    def menu(self):
+    def menu(self) -> bool:
         return self.devices()
 
-    def switches(self):
+    def switches(self) -> bool:
         return self.devices()
 
-    def device(self, device_url):
+    def device(self, device_url: str) -> Device:
         """Get an object to a device.
 
         Args:
@@ -138,7 +147,7 @@ class Server:
 
         return Device(device_url=device_url, token=self.token)
 
-    def stats(self):
+    def stats(self) -> bool:
         """Get usage statistics of the OpenL2M server.
 
         Args:
@@ -150,7 +159,7 @@ class Server:
         self.debug("stats()")
         return self.execute(endpoint="api/stats/")
 
-    def environment(self):
+    def environment(self) -> bool:
         """Get information about the runtime environment of the OpenL2M server.
 
         Args:
@@ -167,12 +176,13 @@ class Server:
 # Device() implements access to a specific device
 #
 
+
 class Device(Server):
-    """ This class allow access to a specific device
-        that is accessible/manageable from the OpenL2M Server.
+    """This class allow access to a specific device
+    that is accessible/manageable from the OpenL2M Server.
     """
 
-    def __init__(self, device_url, token):
+    def __init__(self, device_url: str, token: str):
         super().__init__(url=device_url, token=token)
 
     def get(self, view=""):
@@ -193,11 +203,11 @@ class Device(Server):
             endpoint = ""
         return self.execute(endpoint=endpoint)
 
-    def set_interface_state(self, interface_id, state):
+    def set_interface_state(self, interface_id: str, state: bool) -> bool:
         """Set the interface state.
 
         Args:
-            description (str): the new description for the given interface.
+            interface_id (str): the identifier of the requested interface, as retrieved from read_switch().
             state (bool): True to enable or False to disable the requested interface.
 
         Returns:
@@ -207,14 +217,13 @@ class Device(Server):
 
         self.error_string = ""
         if state:
-            data = { 'state': "on" }
+            data = {"state": "on"}
         else:
-            data = { 'state': "off" }
+            data = {"state": "off"}
         endpoint = f"interface/{interface_id}/state/"
         return self.execute(endpoint=endpoint, data=data)
 
-
-    def set_interface_poe_state(self, interface_id, poe_state):
+    def set_interface_poe_state(self, interface_id: str, poe_state: bool) -> bool:
         """Set the interface PoE status.
 
         Args:
@@ -224,14 +233,16 @@ class Device(Server):
         Returns:
             bool:     True if successfull, False if not.
         """
-        self.debug(f"set_interface_poe_status(interface_id={interface_id}, poe_state={poe_state})")
+        self.debug(
+            f"set_interface_poe_status(interface_id={interface_id}, poe_state={poe_state})"
+        )
 
         self.error_string = ""
-        data = { 'poe_state': poe_state }
+        data = {"poe_state": poe_state}
         endpoint = f"interface/{interface_id}/poe_state/"
         return self.execute(endpoint=endpoint, data=data)
 
-    def set_interface_description(self, interface_id, description):
+    def set_interface_description(self, interface_id: str, description: str) -> bool:
         """Set the interface description.
 
         Args:
@@ -241,13 +252,15 @@ class Device(Server):
         Returns:
             bool:     True if successfull, False if not.
         """
-        self.debug(f"set_interface_description(interface_id={interface_id}, description={description})")
+        self.debug(
+            f"set_interface_description(interface_id={interface_id}, description={description})"
+        )
 
-        data = { 'description': description }
+        data = {"description": description}
         endpoint = f"interface/{interface_id}/description/"
         return self.execute(endpoint=endpoint, data=data)
 
-    def set_interface_vlan(self, interface_id, vlan_id):
+    def set_interface_vlan(self, interface_id: str, vlan_id: int) -> bool:
         """Set the interface untagged vlan id.
 
         Args:
@@ -257,8 +270,10 @@ class Device(Server):
         Returns:
             bool:     True if successfull, False if not.
         """
-        self.debug(f"set_interface_vlan(interface_id={interface_id}, vlan_id={vlan_id})")
+        self.debug(
+            f"set_interface_vlan(interface_id={interface_id}, vlan_id={vlan_id})"
+        )
 
-        data = { 'vlan': vlan_id }
+        data = {"vlan": vlan_id}
         endpoint = f"interface/{interface_id}/vlan/"
         return self.execute(endpoint=endpoint, data=data)
