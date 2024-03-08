@@ -21,6 +21,12 @@ import sys
 
 import openl2m
 
+#
+# NOTE:
+# The REST API is truly RESTful! So NO data is being cached between calls,
+# and each call will need to relearn the device. This can be slow!
+#
+
 # set these fields per your own environment:
 # you can export environment variables OPENL2M_URL and OPENL2M_TOKEN
 url = os.getenv("OPENL2M_URL")
@@ -83,7 +89,14 @@ pprint.pprint(server.response.json())
 val = server.devices()
 if val:
     my_devices = server.response.json()
+    # show the structure:
     # pprint.pprint(my_devices)
+    # show groups of devices with name and api base url:
+    for group_number, group in my_devices["groups"].items():
+        print(f"Group {group_number}: {group['display_name']}")
+        for device_number, device in group["members"].items():
+            print(f"  Device {device_number}: {device['name']} - {device['url']}")
+
 # else: ... see above.
 
 # you can now parse your devices dict(). There is a "groups" entry, which is indexed by group id.
@@ -92,11 +105,9 @@ if val:
 
 # get the device information for device/switch id "272", in group "9":
 device1_url = my_devices["groups"]["9"]["members"]["272"]["url"]
-print(f"Accessing device 1 at {device1_url}")
 
 # and another one:
 device2_url = my_devices["groups"]["4"]["members"]["839"]["url"]
-print(f"Accessing device 2 at {device2_url}")
 
 #####################
 # Reading a device: #
@@ -107,106 +118,134 @@ print(f"Accessing device 2 at {device2_url}")
 # without the need to go through the server.devices() call as shown above.
 #
 
-# get objects for these devices:
-device1 = server.device(device_url=device1_url)
-device2 = server.device(device_url=device2_url)
+# get object for this device:
+print(f"\nAccessing device 1 at {device1_url}")
 
+device1 = server.device(device_url=device1_url)
 # and read the devices:
 if device1.get():  # interface info only
     info1 = device1.response.json()
     # pprint.pprint(info1)
+    # the return dict() has several entries, "interfaces", "switch", "vlans"
+    # show the hostname:
+    print(f"Hostname 1: {info1['switch']['hostname']}")
+    # show the interfaces:
+    for interface in info1["interfaces"]:
+        print(f"id={interface['id']}: {interface['name']} - {interface['description']}")
+else:
+    # cannot access device:
+    print(
+        f"Error accesing device: status code = {device1.status}, reason = '{device1.response.json().get('reason', 'No reason found!')}'"
+    )
+
+# another device:
+print(f"\nAccessing device 2 at {device2_url}")
+
+device2 = server.device(device_url=device2_url)
 if device2.get(view="details"):  # interface and eth/arp/lldp data
     info2 = device2.response.json()
     # pprint.pprint(info2)
+    # show the vlans:
+    print(f"Hostname 2: {info2['switch']['hostname']}")
+    # pprint.pprint(info2['vlans'])
+    for vlan in info2["vlans"].values():
+        print(f"id={vlan['id']}: {vlan['name']}")
+else:
+    # cannot access device:
+    print(
+        f"Error accesing device: status code = {device2.status}, reason = '{device2.response.json().get('reason', 'No reason found!')}'"
+    )
 
-# the return dict() has several entries, "interfaces", "switch", "vlans"
-# show the hostname:
-print(f"Hostname 1: {info1['switch']['hostname']}")
-# show the interfaces:
-for interface in info1["interfaces"]:
-    print(f"id={interface['id']}: {interface['name']} - {interface['description']}")
-
-# show the vlans:
-print(f"Hostname 2: {info2['switch']['hostname']}")
-# pprint.pprint(info2['vlans'])
-for vlan in info2["vlans"].values():
-    print(f"id={vlan['id']}: {vlan['name']}")
 
 ###################
 # Making changes: #
 ###################
 
 #
-# set the description for interface GigE1/0/20, which has id="20".
+# set the description for interface GigE1/0/15, which has id="15".
 # Note: interface ID's are str() values !!!
 #
-val = device1.set_interface_description(
-    interface_id="20", description="New description - 1"
-)
-# pprint.pprint(val)
-# if this fails, there typically is a reason returned:
-if val:
-    print("SUCCESS set_interface_description")
-    # on success, there typically is a "result" returned:
-    pprint.pprint(device2.response.json())
-else:
-    if device1.status == -1:
-        print(f"ERROR set_interface_description:\n{device1.error}")
+try:
+    val = device1.set_interface_description(
+        interface_id="15", description="New description"
+    )
+    # pprint.pprint(val)
+    # if this fails, there typically is a reason returned:
+    if val:
+        print("SUCCESS set_interface_description")
+        # on success, there typically is a "result" returned:
+        pprint.pprint(device1.response.json())
     else:
-        # if this fails, there typically is a "reason" returned:
-        print(
-            f"ERROR set_interface_description:\nFailed with return code {device1.response.status_code}: {device1.response.json().get('reason', 'No reason found!')}"
-        )
+        if device1.status == -1:
+            print(f"ERROR set_interface_description:\n{device1.error}")
+        else:
+            # if this fails, there typically is a "reason" returned:
+            print(
+                f"ERROR set_interface_description:\nFailed with return code {device1.response.status_code}: {device1.response.json().get('reason', 'No reason found!')}"
+            )
+except Exception as err:
+    print(f"An Error Occurred with 'set_interface_description': {err}")
 
 
 #
 # set the untagged vlan on interface GigE1/0/20 to 999
 #
-val = device1.set_interface_vlan(interface_id="20", vlan_id=888)
-if val:
-    print("SUCCESS set_interface_vlan")
-    # on success, there typically is a "result" returned:
-    pprint.pprint(device2.response.json())
-else:
-    if device1.status == -1:
-        print(f"ERROR set_interface_vlan:\n{device1.error}")
+try:
+    val = device1.set_interface_vlan(interface_id="15", vlan_id=888)
+    if val:
+        print("SUCCESS set_interface_vlan")
+        # on success, there typically is a "result" returned:
+        pprint.pprint(device1.response.json())
     else:
-        # if this fails, there typically is a "reason" returned:
-        print(
-            f"ERROR set_interface_vlan:\nFailed with return code {device1.response.status_code}: {device1.response.json().get('reason', 'No reason found!')}"
-        )
+        if device1.status == -1:
+            print(f"ERROR set_interface_vlan:\n{device1.error}")
+        else:
+            # if this fails, there typically is a "reason" returned:
+            print(
+                f"ERROR set_interface_vlan:\nFailed with return code {device1.response.status_code}: {device1.response.json().get('reason', 'No reason found!')}"
+            )
+except Exception as err:
+    print(f"An Error Occurred with 'set_interface_vlan': {err}")
 
 
 #
 # enable or disable PoE on an interface
 #
-val = device2.set_interface_poe_state(interface_id="10", poe_state=False)
-pprint.pprint(val)
-if val:
-    print("SUCCESS set_interface_state")
-    # on success, there typically is a "result" returned:
-    pprint.pprint(device2.response.json())
-else:
-    if device1.status == -1:
-        print(f"ERROR set_interface_poe_state:\n{device1.error}")
+try:
+    val = device2.set_interface_poe_state(interface_id="10", poe_state=False)
+    pprint.pprint(val)
+    if val:
+        print("SUCCESS set_interface_state")
+        # on success, there typically is a "result" returned:
+        pprint.pprint(device2.response.json())
     else:
-        # if this fails, there typically is a "reason" returned:
-        print(
-            f"ERROR set_interface_poe_state:\nFailed with return code {device2.response.status_code}: {device2.response.json().get('reason', 'No reason found!')}"
-        )
+        if device1.status == -1:
+            print(f"ERROR set_interface_poe_state:\n{device1.error}")
+        else:
+            # if this fails, there typically is a "reason" returned:
+            print(
+                f"ERROR set_interface_poe_state:\nFailed with return code {device2.response.status_code}: {device2.response.json().get('reason', 'No reason found!')}"
+            )
+except Exception as err:
+    print(f"An Error Occurred with 'set_interface_poe': {err}")
 
 
+#
 # enable or disable an interface
-val = device2.set_interface_state(interface_id="10", state=False)
-if val:
-    print("SUCCESS set_interface_state")
-    # on success, there typically is a "result" returned:
-    pprint.pprint(device2.response.json())
-else:
-    if device1.status == -1:
-        print(f"ERROR set_interface_state:\n{device1.error}")
+#
+try:
+    val = device2.set_interface_state(interface_id="10", state=False)
+    if val:
+        print("SUCCESS set_interface_state")
+        # on success, there typically is a "result" returned:
+        pprint.pprint(device2.response.json())
     else:
-        # if this fails, there typically is a "reason" returned:
-        print(
-            f"ERROR set_interface_state:\nFailed with return code {device2.response.status_code}: {device2.response.json().get('reason', 'No reason found!')}"
-        )
+        if device1.status == -1:
+            print(f"ERROR set_interface_state:\n{device1.error}")
+        else:
+            # if this fails, there typically is a "reason" returned:
+            print(
+                f"ERROR set_interface_state:\nFailed with return code {device2.response.status_code}: {device2.response.json().get('reason', 'No reason found!')}"
+            )
+except Exception as err:
+    print(f"An Error Occurred with 'set_interface_state': {err}")

@@ -134,7 +134,7 @@ class Server:
     def switches(self) -> bool:
         return self.devices()
 
-    def device(self, device_url: str) -> Device:
+    def device(self, device_url: str):
         """Get an object to a device.
 
         Args:
